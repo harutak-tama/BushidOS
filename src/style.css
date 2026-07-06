@@ -170,7 +170,7 @@ code {
   flex-direction: column;
   box-sizing: border-box;
 
-  touch-action: manipulation;
+  touch-action: pan-y;
 }
 
 #center {
