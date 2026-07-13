@@ -1,60 +1,101 @@
 import './style.css'
-import javascriptLogo from './assets/javascript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import { setupCounter } from './counter.js'
 
-document.querySelector('#app').innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${javascriptLogo}" class="framework" alt="JavaScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.js</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const statusEl = document.querySelector('#status')
 
-<div class="ticks"></div>
+const BRIGHTNESS_THRESHOLD = 0.5
+const MATCH_HOLD_MS = 700
+const SAMPLE_INTERVAL_MS = 120
+const REDIRECT_URL = `${import.meta.env.BASE_URL}chooseApp.html`
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-          <img class="button-icon" src="${javascriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+async function startBrightnessWatcher() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    statusEl.textContent = 'Camera API is not available on this device.'
+    return
+  }
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+  const video = document.createElement('video')
+  video.autoplay = true
+  video.playsInline = true
+  video.muted = true
 
-setupCounter(document.querySelector('#counter'))
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+  if (!ctx) {
+    statusEl.textContent = 'Failed to initialize image processor.'
+    return
+  }
+
+  let stream
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    })
+  } catch (error) {
+    statusEl.textContent = 'Camera permission is required.'
+    return
+  }
+
+  video.srcObject = stream
+
+  try {
+    await video.play()
+  } catch (error) {
+    statusEl.textContent = 'Unable to start camera stream.'
+    stream.getTracks().forEach((track) => track.stop())
+    return
+  }
+
+  statusEl.textContent = 'Monitoring brightness for chooseApp...'
+
+  let matchedSince = null
+
+  const intervalId = window.setInterval(() => {
+    if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      return
+    }
+
+    canvas.width = 64
+    canvas.height = Math.max(36, Math.round((64 * video.videoHeight) / video.videoWidth))
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    let luminanceSum = 0
+
+    for (let i = 0; i < imageData.length; i += 4) {
+      const r = imageData[i]
+      const g = imageData[i + 1]
+      const b = imageData[i + 2]
+      luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    const pixelCount = imageData.length / 4
+    const brightness = luminanceSum / (pixelCount * 255)
+
+    console.log(
+      `[brightness] ${brightness.toFixed(3)} (${(brightness * 100).toFixed(1)}%)`
+    )
+
+    const meetsCondition = brightness <= BRIGHTNESS_THRESHOLD
+
+    if (meetsCondition) {
+      matchedSince = matchedSince ?? performance.now()
+
+      if (performance.now() - matchedSince < MATCH_HOLD_MS) {
+        return
+      }
+
+      window.clearInterval(intervalId)
+      stream.getTracks().forEach((track) => track.stop())
+      window.location.replace(REDIRECT_URL)
+      return
+    }
+
+    matchedSince = null
+  }, SAMPLE_INTERVAL_MS)
+}
+
+startBrightnessWatcher()

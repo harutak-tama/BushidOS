@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Low Light Detected</title>
+
+    <script>
+        (function (d) {
+            var config = {
+                kitId: 'ayw5nos',
+                scriptTimeout: 3000,
+                async: true
+            },
+                h = d.documentElement, t = setTimeout(function () { h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive"; }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a; h.className += " wf-loading"; tk.src = 'https://use.typekit.net/' + config.kitId + '.js'; tk.async = true; tk.onload = tk.onreadystatechange = function () { a = this.readyState; if (f || a && a != "complete" && a != "loaded") return; f = true; clearTimeout(t); try { Typekit.load(config) } catch (e) { } }; s.parentNode.insertBefore(tk, s)
+        })(document);
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: #000;
+            color: #fff;
+            text-align: center;
+            padding: 2rem;
+            font-family: "fot-tsukuaoldmin-pr6n", sans-serif;
+            font-weight: 300;
+            font-style: normal;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 8vw, 4rem);
+            letter-spacing: 0.08em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Choose And Insert A UI Sheet</h1>
+
+    <script>
+        (async function () {
+            const MAGENTA_SCORE_THRESHOLD = 0.12;
+            const MIN_RED_BLUE_CHANNEL = 0.2;
+            const DARK_BRIGHTNESS_THRESHOLD = 0.5;
+            const MATCH_HOLD_MS = 700;
+            const SAMPLE_INTERVAL_MS = 120;
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                return;
+            }
+
+            const video = document.createElement('video');
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = true;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            if (!ctx) {
+                return;
+            }
+
+            let stream;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' },
+                    audio: false,
+                });
+            } catch (error) {
+                return;
+            }
+
+            video.srcObject = stream;
+
+            try {
+                await video.play();
+            } catch (error) {
+                stream.getTracks().forEach(function (track) { track.stop(); });
+                return;
+            }
+
+            let toPhoneMatchedSince = null;
+            let toCheeseMatchedSince = null;
+
+            const intervalId = window.setInterval(function () {
+                if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+                    return;
+                }
+
+                canvas.width = 64;
+                canvas.height = Math.max(36, Math.round((64 * video.videoHeight) / video.videoWidth));
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                let luminanceSum = 0;
+                let redSum = 0;
+                let greenSum = 0;
+                let blueSum = 0;
+
+                for (let i = 0; i < imageData.length; i += 4) {
+                    const r = imageData[i];
+                    const g = imageData[i + 1];
+                    const b = imageData[i + 2];
+                    luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                    redSum += r;
+                    greenSum += g;
+                    blueSum += b;
+                }
+
+                const pixelCount = imageData.length / 4;
+                const brightness = luminanceSum / (pixelCount * 255);
+                const avgRed = redSum / (pixelCount * 255);
+                const avgGreen = greenSum / (pixelCount * 255);
+                const avgBlue = blueSum / (pixelCount * 255);
+                const magentaScore = ((avgRed + avgBlue) / 2) - avgGreen;
+                const isMagentaEnough =
+                    magentaScore >= MAGENTA_SCORE_THRESHOLD &&
+                    avgRed >= MIN_RED_BLUE_CHANNEL &&
+                    avgBlue >= MIN_RED_BLUE_CHANNEL;
+                const shouldReturnToCheese = !isMagentaEnough && brightness <= DARK_BRIGHTNESS_THRESHOLD;
+
+                console.log(
+                    '[brightness] ' + brightness.toFixed(3) +
+                    ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
+                    ', [magentaScore] ' + magentaScore.toFixed(3) +
+                    ', [magentaEnough] ' + isMagentaEnough +
+                    ', [returnCheese] ' + shouldReturnToCheese
+                );
+
+                if (isMagentaEnough) {
+                    toPhoneMatchedSince = toPhoneMatchedSince || performance.now();
+                    toCheeseMatchedSince = null;
+
+                    if (performance.now() - toPhoneMatchedSince < MATCH_HOLD_MS) {
+                        return;
+                    }
+
+                    window.clearInterval(intervalId);
+                    stream.getTracks().forEach(function (track) { track.stop(); });
+                    window.location.replace('./phoneApp.html');
+                    return;
+                }
+
+                toPhoneMatchedSince = null;
+
+                if (shouldReturnToCheese) {
+                    toCheeseMatchedSince = toCheeseMatchedSince || performance.now();
+
+                    if (performance.now() - toCheeseMatchedSince < MATCH_HOLD_MS) {
+                        return;
+                    }
+
+                    window.clearInterval(intervalId);
+                    stream.getTracks().forEach(function (track) { track.stop(); });
+                    window.location.replace('./cheeseApp.html');
+                    return;
+                }
+
+                toCheeseMatchedSince = null;
+            }, SAMPLE_INTERVAL_MS);
+        })();
+    </script>
+</body>
+
+</html>
