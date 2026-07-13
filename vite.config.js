@@ -6,7 +6,8 @@ export default defineConfig({
     build: {
         rollupOptions: {
             input: {
-                katanaMode: resolve(__dirname, 'katanaMode.html'),
+                index: resolve(__dirname, 'index.html'),
+                cheeseApp: resolve(__dirname, 'cheeseApp.html'),
             },
         },
     },
