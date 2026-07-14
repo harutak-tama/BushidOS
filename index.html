@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/src/style.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BushidOS-soft</title>
 
@@ -27,13 +28,37 @@
     </main>
   </div>
   <script>
-    (function () {
+    (async function () {
       var MOTION_THRESHOLD = 16;
       var PLAY_COOLDOWN_MS = 700;
-      var audio = new Audio('./assets/katana.mp3');
+      var audioSources = [
+        './assets/katana.mp3',
+        './public/assets/katana.mp3',
+        '/assets/katana.mp3',
+        '/BushidOS/assets/katana.mp3'
+      ];
+      var audioSrc = audioSources[audioSources.length - 1];
+      var audio;
       var isMotionListening = false;
       var lastPlayedAt = 0;
 
+      async function resolveAudioSrc() {
+        for (var i = 0; i < audioSources.length; i += 1) {
+          try {
+            var response = await fetch(audioSources[i], { method: 'HEAD' });
+
+            if (response.ok) {
+              return audioSources[i];
+            }
+          } catch (error) {
+          }
+        }
+
+        return audioSrc;
+      }
+
+      audioSrc = await resolveAudioSrc();
+      audio = new Audio(audioSrc);
       audio.preload = 'auto';
 
       function onDeviceMotion(event) {

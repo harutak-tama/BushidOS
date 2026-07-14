@@ -7,7 +7,6 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 index: resolve(__dirname, 'index.html'),
-                cheeseApp: resolve(__dirname, 'cheeseApp.html'),
             },
         },
     },
