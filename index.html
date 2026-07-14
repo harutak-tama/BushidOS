@@ -26,6 +26,69 @@
       <p id="status" class="status">Initializing camera...</p>
     </main>
   </div>
+  <script>
+    (function () {
+      var MOTION_THRESHOLD = 16;
+      var PLAY_COOLDOWN_MS = 700;
+      var audio = new Audio('./assets/katana.mp3');
+      var isMotionListening = false;
+      var lastPlayedAt = 0;
+
+      audio.preload = 'auto';
+
+      function onDeviceMotion(event) {
+        var source = event.accelerationIncludingGravity || event.acceleration;
+
+        if (!source) {
+          return;
+        }
+
+        var x = source.x || 0;
+        var y = source.y || 0;
+        var z = source.z || 0;
+        var magnitude = Math.sqrt(x * x + y * y + z * z);
+        var now = Date.now();
+
+        if (magnitude < MOTION_THRESHOLD || now - lastPlayedAt < PLAY_COOLDOWN_MS) {
+          return;
+        }
+
+        lastPlayedAt = now;
+        audio.currentTime = 0;
+        audio.play().catch(function () {
+        });
+      }
+
+      function attachMotionListener() {
+        if (isMotionListening) {
+          return;
+        }
+
+        window.addEventListener('devicemotion', onDeviceMotion);
+        isMotionListening = true;
+      }
+
+      async function enableMotion() {
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          try {
+            var result = await DeviceMotionEvent.requestPermission();
+
+            if (result !== 'granted') {
+              return;
+            }
+          } catch (error) {
+            return;
+          }
+        }
+
+        attachMotionListener();
+      }
+
+      window.addEventListener('click', enableMotion, { once: true });
+      window.addEventListener('touchstart', enableMotion, { once: true });
+      enableMotion();
+    })();
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 
