@@ -38,10 +38,11 @@
         '/BushidOS/assets/katana.mp3'
       ];
       var audioSrc = audioSources[audioSources.length - 1];
-      var audio;
       var isMotionListening = false;
       var lastPlayedAt = 0;
       var hasPlayedEntryAudio = false;
+      var audioContext = null;
+      var decodedKatanaBuffer = null;
 
       async function resolveAudioSrc() {
         for (var i = 0; i < audioSources.length; i += 1) {
@@ -59,20 +60,86 @@
       }
 
       audioSrc = await resolveAudioSrc();
-      audio = new Audio(audioSrc);
-      audio.preload = 'auto';
 
-      function tryPlayEntryAudio() {
-        if (!audio || hasPlayedEntryAudio) {
+      function getAudioContext() {
+        if (!audioContext) {
+          var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+
+          if (!AudioContextCtor) {
+            return null;
+          }
+
+          audioContext = new AudioContextCtor({ latencyHint: 'interactive' });
+        }
+
+        return audioContext;
+      }
+
+      async function ensureDecodedBuffer() {
+        var ctx = getAudioContext();
+
+        if (!ctx) {
+          return null;
+        }
+
+        if (decodedKatanaBuffer) {
+          return decodedKatanaBuffer;
+        }
+
+        try {
+          var response = await fetch(audioSrc);
+
+          if (!response.ok) {
+            return null;
+          }
+
+          var arrayBuffer = await response.arrayBuffer();
+          decodedKatanaBuffer = await ctx.decodeAudioData(arrayBuffer);
+          return decodedKatanaBuffer;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      async function playKatanaLowLatency() {
+        var ctx = getAudioContext();
+
+        if (!ctx) {
+          return false;
+        }
+
+        if (ctx.state !== 'running') {
+          try {
+            await ctx.resume();
+          } catch (error) {
+            return false;
+          }
+        }
+
+        var buffer = await ensureDecodedBuffer();
+
+        if (!buffer) {
+          return false;
+        }
+
+        var source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        return true;
+      }
+
+      async function tryPlayEntryAudio() {
+        if (hasPlayedEntryAudio) {
           return;
         }
 
-        audio.currentTime = 0;
-        audio.play().then(function () {
+        var didPlay = await playKatanaLowLatency();
+
+        if (didPlay) {
           hasPlayedEntryAudio = true;
           lastPlayedAt = Date.now();
-        }).catch(function () {
-        });
+        }
       }
 
       function onDeviceMotion(event) {
@@ -92,9 +159,10 @@
           return;
         }
 
-        lastPlayedAt = now;
-        audio.currentTime = 0;
-        audio.play().catch(function () {
+        playKatanaLowLatency().then(function (didPlay) {
+          if (didPlay) {
+            lastPlayedAt = now;
+          }
         });
       }
 
@@ -108,7 +176,8 @@
       }
 
       async function enableMotion() {
-        tryPlayEntryAudio();
+        await tryPlayEntryAudio();
+        await ensureDecodedBuffer();
 
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           try {
