@@ -3,8 +3,12 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Choose App</title>
+    <link rel="stylesheet" href="./app-pages.css" />
 
     <script>
         (function (d) {
@@ -18,45 +22,14 @@
     </script>
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
 
-        html,
-        body {
-            margin: 0;
-            min-height: 100%;
-        }
-
-        body {
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            background: #000;
-            color: #fff;
-            text-align: center;
-            padding: 2rem;
-            font-family: "fot-tsukuaoldmin-pr6n", sans-serif;
-            font-weight: 300;
-            font-style: normal;
-            transform: scaleY(-1);
-            transform-origin: center;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: clamp(2rem, 8vw, 4rem);
-            letter-spacing: 0.08em;
-        }
     </style>
 </head>
 
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-<meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" />
-
 <body>
-    <h1>Choose And Insert A UI Sheet</h1>
+    <div class="flip-vertical">
+        <h1>Choose And Insert A UI Sheet</h1>
+    </div>
 
     <script>
         (async function () {

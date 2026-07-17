@@ -5,6 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Phone App</title>
+    <link rel="stylesheet" href="./app-pages.css" />
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
 
     <script>
         (function (d) {
@@ -17,143 +19,324 @@
         })(document);
     </script>
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            margin: 0;
-            min-height: 100%;
-        }
-
-        body {
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            background: #000;
-            color: #fff;
-            text-align: center;
-            padding: 2rem;
-            font-family: "fot-tsukuaoldmin-pr6n", sans-serif;
-            font-weight: 300;
-            font-style: normal;
-            transform: scale3d(1, -1, 1);
-            transform-origin: center;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: clamp(2rem, 8vw, 4rem);
-            letter-spacing: 0.08em;
-        }
-    </style>
 </head>
 
-<body>
-    <h1>Phone App</h1>
+<body class="phone-app-body flip-vertical">
+    <main class="phone-app">
+        <section class="phone-device" aria-label="Simple phone app mockup">
+            <div class="phone-device__paper">
+                <section class="phone-device__display-section" aria-label="Display section">
+                    <h1 class="phone-device__title">Phone</h1>
+
+                    <div class="phone-device__statusbar">
+                        <span id="statusLabel">Ready</span>
+                    </div>
+
+                    <div class="phone-device__display" id="dialDisplay">_</div>
+                </section>
+
+                <section class="phone-device__keypad-section phone-device__keypad-section--glow-only"
+                    aria-label="Keypad section">
+                    <div class="phone-device__quick">
+                        <button class="quick-btn" data-number="110">Emergency</button>
+                    </div>
+
+                    <div class="phone-device__pad" aria-label="Dial pad">
+                        <button class="pad-btn" data-key="1">1</button>
+                        <button class="pad-btn" data-key="2">2</button>
+                        <button class="pad-btn" data-key="3">3</button>
+                        <button class="pad-btn" data-key="4">4</button>
+                        <button class="pad-btn" data-key="5">5</button>
+                        <button class="pad-btn" data-key="6">6</button>
+                        <button class="pad-btn" data-key="7">7</button>
+                        <button class="pad-btn" data-key="8">8</button>
+                        <button class="pad-btn" data-key="9">9</button>
+                        <button class="pad-btn" data-key="*">*</button>
+                        <button class="pad-btn" data-key="0">0</button>
+                        <button class="pad-btn" data-key="#">#</button>
+                    </div>
+
+                    <div class="phone-device__actions">
+                        <button id="deleteBtn" class="action-btn action-btn--neutral">Delete</button>
+                        <button id="clearBtn" class="action-btn action-btn--neutral">Clear</button>
+                        <button id="callBtn" class="action-btn action-btn--call">Call</button>
+                        <button id="endBtn" class="action-btn action-btn--end">End</button>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
 
     <script>
-        (async function () {
-            const MAGENTA_SCORE_THRESHOLD = 0.12;
-            const MATCH_HOLD_MS = 700;
-            const SAMPLE_INTERVAL_MS = 120;
-
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        (function () {
+            if (typeof window.p5 !== 'function') {
                 return;
             }
 
-            const video = document.createElement('video');
-            video.autoplay = true;
-            video.playsInline = true;
-            video.muted = true;
+            new p5(function (sketch) {
+                let keypadSection;
+                let resizeObserver;
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                function drawGlow(ctx, x, y, radius) {
+                    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                    gradient.addColorStop(0, 'rgba(255, 200, 230, 0.95)');
+                    gradient.addColorStop(0.16, 'rgba(255, 130, 205, 0.5)');
+                    gradient.addColorStop(0.38, 'rgba(255, 90, 176, 0.18)');
+                    gradient.addColorStop(1, 'rgba(255, 90, 176, 0)');
 
-            if (!ctx) {
-                return;
-            }
-
-            let stream;
-
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user' },
-                    audio: false,
-                });
-            } catch (error) {
-                return;
-            }
-
-            video.srcObject = stream;
-
-            try {
-                await video.play();
-            } catch (error) {
-                stream.getTracks().forEach(function (track) { track.stop(); });
-                return;
-            }
-
-            let returnMatchedSince = null;
-
-            const intervalId = window.setInterval(function () {
-                if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
-                    return;
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
                 }
 
-                canvas.width = 64;
-                canvas.height = Math.max(36, Math.round((64 * video.videoHeight) / video.videoWidth));
+                function renderGlow() {
+                    if (!keypadSection) {
+                        keypadSection = document.querySelector('.phone-device__keypad-section');
+                    }
 
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                let luminanceSum = 0;
-                let redSum = 0;
-                let greenSum = 0;
-                let blueSum = 0;
-
-                for (let i = 0; i < imageData.length; i += 4) {
-                    const r = imageData[i];
-                    const g = imageData[i + 1];
-                    const b = imageData[i + 2];
-                    luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                    redSum += r;
-                    greenSum += g;
-                    blueSum += b;
-                }
-
-                const pixelCount = imageData.length / 4;
-                const brightness = luminanceSum / (pixelCount * 255);
-                const avgRed = redSum / (pixelCount * 255);
-                const avgGreen = greenSum / (pixelCount * 255);
-                const avgBlue = blueSum / (pixelCount * 255);
-                const magentaScore = ((avgRed + avgBlue) / 2) - avgGreen;
-                const shouldReturnToChoose = magentaScore < MAGENTA_SCORE_THRESHOLD;
-
-                console.log(
-                    '[phoneApp] [brightness] ' + brightness.toFixed(3) +
-                    ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
-                    ', [magentaScore] ' + magentaScore.toFixed(3) +
-                    ', [returnChoose] ' + shouldReturnToChoose
-                );
-
-                if (shouldReturnToChoose) {
-                    returnMatchedSince = returnMatchedSince || performance.now();
-
-                    if (performance.now() - returnMatchedSince < MATCH_HOLD_MS) {
+                    if (!keypadSection) {
                         return;
                     }
 
-                    window.clearInterval(intervalId);
-                    stream.getTracks().forEach(function (track) { track.stop(); });
-                    window.location.replace('./chooseApp.html?v=2');
+                    const ctx = sketch.drawingContext;
+                    const sectionRect = keypadSection.getBoundingClientRect();
+                    const buttons = keypadSection.querySelectorAll('.quick-btn, .pad-btn, .action-btn');
+
+                    sketch.resizeCanvas(Math.max(1, Math.round(sectionRect.width)), Math.max(1, Math.round(sectionRect.height)));
+                    sketch.clear();
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.filter = 'blur(0px)';
+
+                    buttons.forEach(function (button) {
+                        const rect = button.getBoundingClientRect();
+                        const centerX = (rect.left - sectionRect.left) + (rect.width / 2);
+                        const centerY = (rect.top - sectionRect.top) + (rect.height / 2);
+                        const mirroredX = sectionRect.width - centerX;
+                        const mirroredY = sectionRect.height - centerY;
+                        const baseRadius = Math.min(rect.width, rect.height) * 0.45;
+
+                        drawGlow(ctx, mirroredX, mirroredY, Math.max(8, baseRadius * 1.0));
+                        drawGlow(ctx, mirroredX, mirroredY, Math.max(5, baseRadius * 0.55));
+                    });
+
+                    ctx.restore();
+                }
+
+                sketch.setup = function () {
+                    keypadSection = document.querySelector('.phone-device__keypad-section');
+
+                    const initialWidth = keypadSection ? keypadSection.clientWidth : sketch.windowWidth;
+                    const initialHeight = keypadSection ? keypadSection.clientHeight : sketch.windowHeight;
+                    const canvas = sketch.createCanvas(Math.max(1, initialWidth), Math.max(1, initialHeight));
+
+                    canvas.parent(keypadSection || document.body);
+                    canvas.addClass('phone-app-p5-layer');
+                    sketch.noLoop();
+
+                    renderGlow();
+
+                    window.setTimeout(renderGlow, 60);
+                    window.setTimeout(renderGlow, 180);
+                    window.setTimeout(renderGlow, 420);
+
+                    if (typeof ResizeObserver !== 'undefined' && keypadSection) {
+                        resizeObserver = new ResizeObserver(function () {
+                            renderGlow();
+                        });
+
+                        resizeObserver.observe(keypadSection);
+                    }
+                };
+
+                sketch.windowResized = function () {
+                    renderGlow();
+                };
+            });
+        })();
+
+        (function () {
+            const MAX_DIGITS = 14;
+            const callDelayMs = 900;
+            const dtmfSources = {
+                '1': './assets/Telephone-DTMF01-01(1).mp3',
+                '2': './assets/Telephone-DTMF01-02(2).mp3',
+                '3': './assets/Telephone-DTMF01-03(3).mp3',
+                '4': './assets/Telephone-DTMF01-04(4).mp3',
+                '5': './assets/Telephone-DTMF01-05(5).mp3',
+                '6': './assets/Telephone-DTMF01-06(6).mp3',
+                '7': './assets/Telephone-DTMF01-07(7).mp3',
+                '8': './assets/Telephone-DTMF01-08(8).mp3',
+                '9': './assets/Telephone-DTMF01-09(9).mp3',
+                '*': './assets/Telephone-DTMF01-10(Star).mp3',
+                '0': './assets/Telephone-DTMF01-11(0).mp3',
+                '#': './assets/Telephone-DTMF01-12(Hash).mp3'
+            };
+
+            const dialDisplay = document.getElementById('dialDisplay');
+            const statusLabel = document.getElementById('statusLabel');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const callBtn = document.getElementById('callBtn');
+            const endBtn = document.getElementById('endBtn');
+            const padButtons = document.querySelectorAll('.pad-btn');
+            const quickButtons = document.querySelectorAll('.quick-btn');
+
+            let dialedNumber = '';
+            let callState = 'idle';
+            let callStartedAt = null;
+            let callTimer = null;
+            let dialTimer = null;
+            const ringLoopAudio = new Audio('./assets/phone-call.mp3');
+            ringLoopAudio.loop = true;
+            ringLoopAudio.preload = 'auto';
+
+            function playDtmfTone(key) {
+                const source = dtmfSources[key];
+
+                if (!source) {
                     return;
                 }
 
-                returnMatchedSince = null;
-            }, SAMPLE_INTERVAL_MS);
+                const tone = new Audio(source);
+                tone.currentTime = 0;
+                tone.play().catch(function () {
+                });
+            }
+
+            function startCallLoopAudio() {
+                ringLoopAudio.currentTime = 0;
+                ringLoopAudio.play().catch(function () {
+                });
+            }
+
+            function stopCallLoopAudio() {
+                ringLoopAudio.pause();
+                ringLoopAudio.currentTime = 0;
+            }
+
+            function setStatus(text) {
+                statusLabel.textContent = text;
+            }
+
+            function formatCallTime(totalSeconds) {
+                const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+                return minutes + ':' + seconds;
+            }
+
+            function renderDial() {
+                dialDisplay.textContent = dialedNumber || '_';
+            }
+
+            function stopTimers() {
+                if (callTimer) {
+                    window.clearInterval(callTimer);
+                    callTimer = null;
+                }
+
+                if (dialTimer) {
+                    window.clearTimeout(dialTimer);
+                    dialTimer = null;
+                }
+            }
+
+            function endCall() {
+                stopTimers();
+                stopCallLoopAudio();
+                callState = 'idle';
+                callStartedAt = null;
+                setStatus('Ready');
+            }
+
+            function beginCall() {
+                if (!dialedNumber) {
+                    setStatus('Enter number');
+                    return;
+                }
+
+                stopTimers();
+                stopCallLoopAudio();
+                callState = 'dialing';
+                setStatus('Dialing...');
+
+                dialTimer = window.setTimeout(function () {
+                    callState = 'in-call';
+                    callStartedAt = Date.now();
+                    setStatus('In call 00:00');
+                    startCallLoopAudio();
+
+                    callTimer = window.setInterval(function () {
+                        const elapsedSeconds = Math.floor((Date.now() - callStartedAt) / 1000);
+                        setStatus('In call ' + formatCallTime(elapsedSeconds));
+                    }, 1000);
+                }, callDelayMs);
+            }
+
+            function addKey(key) {
+                if (callState === 'in-call') {
+                    return;
+                }
+
+                if (dialedNumber.length >= MAX_DIGITS) {
+                    return;
+                }
+
+                playDtmfTone(key);
+                dialedNumber += key;
+                setStatus('Number ready');
+                renderDial();
+            }
+
+            function deleteLastDigit() {
+                if (callState === 'in-call') {
+                    return;
+                }
+
+                dialedNumber = dialedNumber.slice(0, -1);
+                setStatus(dialedNumber ? 'Number ready' : 'Ready');
+                renderDial();
+            }
+
+            function clearAllDigits() {
+                if (callState === 'in-call') {
+                    return;
+                }
+
+                dialedNumber = '';
+                setStatus('Ready');
+                renderDial();
+            }
+
+            function setQuickNumber(number) {
+                if (callState === 'in-call') {
+                    return;
+                }
+
+                dialedNumber = number;
+                setStatus('Speed dial selected');
+                renderDial();
+            }
+
+            padButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    addKey(button.dataset.key || '');
+                });
+            });
+
+            quickButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    setQuickNumber(button.dataset.number || '');
+                });
+            });
+
+            deleteBtn.addEventListener('click', deleteLastDigit);
+            clearBtn.addEventListener('click', clearAllDigits);
+            callBtn.addEventListener('click', beginCall);
+            endBtn.addEventListener('click', endCall);
+
+            renderDial();
         })();
     </script>
 </body>
