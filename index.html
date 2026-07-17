@@ -41,6 +41,7 @@
       var audio;
       var isMotionListening = false;
       var lastPlayedAt = 0;
+      var hasPlayedEntryAudio = false;
 
       async function resolveAudioSrc() {
         for (var i = 0; i < audioSources.length; i += 1) {
@@ -60,6 +61,19 @@
       audioSrc = await resolveAudioSrc();
       audio = new Audio(audioSrc);
       audio.preload = 'auto';
+
+      function tryPlayEntryAudio() {
+        if (!audio || hasPlayedEntryAudio) {
+          return;
+        }
+
+        audio.currentTime = 0;
+        audio.play().then(function () {
+          hasPlayedEntryAudio = true;
+          lastPlayedAt = Date.now();
+        }).catch(function () {
+        });
+      }
 
       function onDeviceMotion(event) {
         var source = event.accelerationIncludingGravity || event.acceleration;
@@ -94,6 +108,8 @@
       }
 
       async function enableMotion() {
+        tryPlayEntryAudio();
+
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           try {
             var result = await DeviceMotionEvent.requestPermission();
@@ -109,6 +125,7 @@
         attachMotionListener();
       }
 
+      tryPlayEntryAudio();
       window.addEventListener('click', enableMotion, { once: true });
       window.addEventListener('touchstart', enableMotion, { once: true });
       enableMotion();
