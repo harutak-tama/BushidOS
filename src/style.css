@@ -2,6 +2,13 @@
     box-sizing: border-box;
 }
 
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
 :root {
     font-family: "fot-tsukuaoldmin-pr6n", sans-serif;
     font-weight: 300;
