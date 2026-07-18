@@ -76,12 +76,17 @@
             new p5(function (sketch) {
                 let keypadSection;
                 let resizeObserver;
+                let glowButtons = [];
+                let glowBoostUntil = new Map();
+                let animationFrameId = null;
+                const GLOW_BOOST_MS = 220;
 
-                function drawGlow(ctx, x, y, radius) {
+                function drawGlow(ctx, x, y, radius, strength) {
+                    const boostedStrength = Math.max(1, strength || 1);
                     const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                    gradient.addColorStop(0, 'rgba(255, 200, 230, 0.95)');
-                    gradient.addColorStop(0.16, 'rgba(255, 130, 205, 0.5)');
-                    gradient.addColorStop(0.38, 'rgba(255, 90, 176, 0.18)');
+                    gradient.addColorStop(0, 'rgba(255, 200, 230, ' + (0.95 * boostedStrength).toFixed(3) + ')');
+                    gradient.addColorStop(0.16, 'rgba(255, 130, 205, ' + (0.5 * boostedStrength).toFixed(3) + ')');
+                    gradient.addColorStop(0.38, 'rgba(255, 90, 176, ' + (0.18 * boostedStrength).toFixed(3) + ')');
                     gradient.addColorStop(1, 'rgba(255, 90, 176, 0)');
 
                     ctx.fillStyle = gradient;
@@ -101,7 +106,8 @@
 
                     const ctx = sketch.drawingContext;
                     const sectionRect = keypadSection.getBoundingClientRect();
-                    const buttons = keypadSection.querySelectorAll('.quick-btn, .pad-btn, .action-btn');
+                    const buttons = glowButtons.length ? glowButtons : keypadSection.querySelectorAll('.quick-btn, .pad-btn, .action-btn');
+                    const now = performance.now();
 
                     sketch.resizeCanvas(Math.max(1, Math.round(sectionRect.width)), Math.max(1, Math.round(sectionRect.height)));
                     sketch.clear();
@@ -116,16 +122,64 @@
                         const mirroredX = sectionRect.width - centerX;
                         const mirroredY = sectionRect.height - centerY;
                         const baseRadius = Math.min(rect.width, rect.height) * 0.45;
+                        const boostUntil = glowBoostUntil.get(button) || 0;
+                        const isBoosted = boostUntil > now;
+                        const boostProgress = isBoosted ? (boostUntil - now) / GLOW_BOOST_MS : 0;
+                        const radiusBoost = 1 + (boostProgress * 1.1);
+                        const strengthBoost = 1 + (boostProgress * 0.9);
 
-                        drawGlow(ctx, mirroredX, mirroredY, Math.max(8, baseRadius * 1.0));
-                        drawGlow(ctx, mirroredX, mirroredY, Math.max(5, baseRadius * 0.55));
+                        drawGlow(ctx, mirroredX, mirroredY, Math.max(8, baseRadius * 1.0 * radiusBoost), strengthBoost);
+                        drawGlow(ctx, mirroredX, mirroredY, Math.max(5, baseRadius * 0.55 * radiusBoost), strengthBoost);
+
+                        if (!isBoosted && glowBoostUntil.has(button)) {
+                            glowBoostUntil.delete(button);
+                        }
                     });
 
                     ctx.restore();
                 }
 
+                function hasActiveBoost() {
+                    const now = performance.now();
+
+                    return glowButtons.some(function (button) {
+                        return (glowBoostUntil.get(button) || 0) > now;
+                    });
+                }
+
+                function runGlowAnimationFrame() {
+                    renderGlow();
+
+                    if (hasActiveBoost()) {
+                        animationFrameId = window.requestAnimationFrame(runGlowAnimationFrame);
+                        return;
+                    }
+
+                    animationFrameId = null;
+                }
+
+                function startGlowAnimation() {
+                    if (animationFrameId !== null) {
+                        return;
+                    }
+
+                    animationFrameId = window.requestAnimationFrame(runGlowAnimationFrame);
+                }
+
+                function registerGlowBoostHandlers() {
+                    glowButtons.forEach(function (button) {
+                        button.addEventListener('pointerdown', function () {
+                            glowBoostUntil.set(button, performance.now() + GLOW_BOOST_MS);
+                            startGlowAnimation();
+                        });
+                    });
+                }
+
                 sketch.setup = function () {
                     keypadSection = document.querySelector('.phone-device__keypad-section');
+                    glowButtons = keypadSection
+                        ? Array.from(keypadSection.querySelectorAll('.quick-btn, .pad-btn, .action-btn'))
+                        : [];
 
                     const initialWidth = keypadSection ? keypadSection.clientWidth : sketch.windowWidth;
                     const initialHeight = keypadSection ? keypadSection.clientHeight : sketch.windowHeight;
@@ -134,6 +188,8 @@
                     canvas.parent(keypadSection || document.body);
                     canvas.addClass('phone-app-p5-layer');
                     sketch.noLoop();
+
+                    registerGlowBoostHandlers();
 
                     renderGlow();
 

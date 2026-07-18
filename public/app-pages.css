@@ -131,7 +131,8 @@ h1 {
     position: relative;
     display: grid;
     gap: 0.8rem;
-    padding: 2rem 1.3rem 3rem;
+    padding: 2.6rem 1.3rem 3.8rem;
+    min-height: 58dvh;
     border-top: none;
     margin-top: 0;
     background: #000;
