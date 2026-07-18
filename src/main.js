@@ -1,8 +1,9 @@
 const statusEl = document.querySelector('#status')
 
-const BRIGHTNESS_THRESHOLD = 0.8
-const MATCH_HOLD_MS = 700
+const BRIGHTNESS_THRESHOLD = 0.72
+const MATCH_HOLD_MS = 1400
 const SAMPLE_INTERVAL_MS = 120
+const BRIGHTNESS_SMOOTH_ALPHA = 0.2
 const BASE_URL = import.meta?.env?.BASE_URL ?? './public/'
 const REDIRECT_URL = `${BASE_URL}chooseApp.html?v=2`
 
@@ -50,6 +51,7 @@ async function startBrightnessWatcher() {
   statusEl.textContent = 'Monitoring brightness for chooseApp...'
 
   let matchedSince = null
+  let smoothedBrightness = null
 
   const intervalId = window.setInterval(() => {
     if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -73,12 +75,16 @@ async function startBrightnessWatcher() {
 
     const pixelCount = imageData.length / 4
     const brightness = luminanceSum / (pixelCount * 255)
+    smoothedBrightness =
+      smoothedBrightness === null
+        ? brightness
+        : smoothedBrightness + BRIGHTNESS_SMOOTH_ALPHA * (brightness - smoothedBrightness)
 
     console.log(
-      `[brightness] ${brightness.toFixed(3)} (${(brightness * 100).toFixed(1)}%)`
+      `[brightness] ${brightness.toFixed(3)} (${(brightness * 100).toFixed(1)}%), [smooth] ${smoothedBrightness.toFixed(3)} (${(smoothedBrightness * 100).toFixed(1)}%)`
     )
 
-    const meetsCondition = brightness <= BRIGHTNESS_THRESHOLD
+    const meetsCondition = smoothedBrightness <= BRIGHTNESS_THRESHOLD
 
     if (meetsCondition) {
       matchedSince = matchedSince ?? performance.now()

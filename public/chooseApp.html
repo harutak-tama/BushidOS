@@ -36,9 +36,11 @@
         (async function () {
             const MAGENTA_SCORE_THRESHOLD = 0.12;
             const MIN_RED_BLUE_CHANNEL = 0.2;
-            const DARK_BRIGHTNESS_THRESHOLD = 0.5;
-            const MATCH_HOLD_MS = 700;
+            const RETURN_INDEX_BRIGHTNESS_THRESHOLD = 0.72;
+            const TO_PHONE_HOLD_MS = 700;
+            const TO_INDEX_HOLD_MS = 1400;
             const SAMPLE_INTERVAL_MS = 120;
+            const BRIGHTNESS_SMOOTH_ALPHA = 0.2;
             const INDEX_URL_CANDIDATES = [
                 './index.html',
                 '../index.html',
@@ -101,6 +103,7 @@
 
             let toPhoneMatchedSince = null;
             let toIndexMatchedSince = null;
+            let smoothedBrightness = null;
 
             const intervalId = window.setInterval(function () {
                 if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -130,6 +133,10 @@
 
                 const pixelCount = imageData.length / 4;
                 const brightness = luminanceSum / (pixelCount * 255);
+                smoothedBrightness =
+                    smoothedBrightness === null
+                        ? brightness
+                        : smoothedBrightness + BRIGHTNESS_SMOOTH_ALPHA * (brightness - smoothedBrightness);
                 const avgRed = redSum / (pixelCount * 255);
                 const avgGreen = greenSum / (pixelCount * 255);
                 const avgBlue = blueSum / (pixelCount * 255);
@@ -138,10 +145,11 @@
                     magentaScore >= MAGENTA_SCORE_THRESHOLD &&
                     avgRed >= MIN_RED_BLUE_CHANNEL &&
                     avgBlue >= MIN_RED_BLUE_CHANNEL;
-                const shouldReturnToIndex = brightness > DARK_BRIGHTNESS_THRESHOLD;
+                const shouldReturnToIndex = smoothedBrightness > RETURN_INDEX_BRIGHTNESS_THRESHOLD;
 
                 console.log(
                     '[brightness] ' + brightness.toFixed(3) +
+                    ', [smooth] ' + smoothedBrightness.toFixed(3) +
                     ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
                     ', [magentaScore] ' + magentaScore.toFixed(3) +
                     ', [magentaEnough] ' + isMagentaEnough +
@@ -152,7 +160,7 @@
                     toPhoneMatchedSince = toPhoneMatchedSince || performance.now();
                     toIndexMatchedSince = null;
 
-                    if (performance.now() - toPhoneMatchedSince < MATCH_HOLD_MS) {
+                    if (performance.now() - toPhoneMatchedSince < TO_PHONE_HOLD_MS) {
                         return;
                     }
 
@@ -167,7 +175,7 @@
                 if (shouldReturnToIndex) {
                     toIndexMatchedSince = toIndexMatchedSince || performance.now();
 
-                    if (performance.now() - toIndexMatchedSince < MATCH_HOLD_MS) {
+                    if (performance.now() - toIndexMatchedSince < TO_INDEX_HOLD_MS) {
                         return;
                     }
 
