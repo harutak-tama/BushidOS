@@ -531,29 +531,7 @@
             const MAGENTA_SCORE_THRESHOLD = 0.05;
             const SAMPLE_INTERVAL_MS = 120;
             const BRIGHTNESS_SMOOTH_ALPHA = 0.5;
-            const INDEX_URL_CANDIDATES = [
-                './index.html',
-                '../index.html',
-                '/index.html',
-                '/BushidOS/index.html'
-            ];
-
-            async function resolveIndexUrl() {
-                for (let i = 0; i < INDEX_URL_CANDIDATES.length; i += 1) {
-                    try {
-                        const response = await fetch(INDEX_URL_CANDIDATES[i], { method: 'HEAD' });
-
-                        if (response.ok) {
-                            return INDEX_URL_CANDIDATES[i];
-                        }
-                    } catch (error) {
-                    }
-                }
-
-                return './index.html';
-            }
-
-            const indexUrl = await resolveIndexUrl();
+            const indexUrl = new URL('./index.html', window.location.href).href;
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 return;
