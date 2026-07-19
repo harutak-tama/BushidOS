@@ -533,6 +533,10 @@
             const BRIGHTNESS_SMOOTH_ALPHA = 0.5;
 
             function getIndexUrl() {
+                if (window.location.pathname.indexOf('/public/') !== -1) {
+                    return new URL('../index.html', window.location.href).href;
+                }
+
                 const isGitHubPages = window.location.hostname.endsWith('github.io');
 
                 if (isGitHubPages) {
