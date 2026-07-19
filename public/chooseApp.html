@@ -36,10 +36,10 @@
 
     <script>
         (async function () {
-            const BRIGHTNESS_DELTA_THRESHOLD = 0.12;
-            const MAGENTA_DELTA_THRESHOLD = 0.1;
-            const SAMPLE_INTERVAL_MS = 100;
-            const BRIGHTNESS_SMOOTH_ALPHA = 0.4;
+            const BRIGHTNESS_DELTA_THRESHOLD = 0.1;
+            const MAGENTA_SCORE_THRESHOLD = 0.03;
+            const SAMPLE_INTERVAL_MS = 120;
+            const BRIGHTNESS_SMOOTH_ALPHA = 0.5;
             const INDEX_URL_CANDIDATES = [
                 './index.html',
                 '../index.html',
@@ -102,7 +102,6 @@
 
             let smoothedBrightness = null;
             let previousBrightness = null;
-            let previousMagentaScore = null;
 
             const intervalId = window.setInterval(function () {
                 if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -144,11 +143,7 @@
                 const avgGreen = greenSum / (pixelCount * 255);
                 const avgBlue = blueSum / (pixelCount * 255);
                 const magentaScore = ((avgRed + avgBlue) / 2) - avgGreen;
-                const magentaDelta = previousMagentaScore === null
-                    ? 0
-                    : magentaScore - previousMagentaScore;
-                previousMagentaScore = magentaScore;
-                const shouldGoPhone = magentaDelta >= MAGENTA_DELTA_THRESHOLD;
+                const shouldGoPhone = magentaScore >= MAGENTA_SCORE_THRESHOLD;
                 const shouldReturnToIndex = brightnessDelta >= BRIGHTNESS_DELTA_THRESHOLD;
 
                 console.log(
@@ -157,7 +152,6 @@
                     ', [delta] ' + brightnessDelta.toFixed(3) +
                     ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
                     ', [magentaScore] ' + magentaScore.toFixed(3) +
-                    ', [magentaDelta] ' + magentaDelta.toFixed(3) +
                     ', [goPhone] ' + shouldGoPhone +
                     ', [returnIndex] ' + shouldReturnToIndex
                 );
