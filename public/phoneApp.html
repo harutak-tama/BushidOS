@@ -245,30 +245,157 @@
             let callStartedAt = null;
             let callTimer = null;
             let dialTimer = null;
+            let audioContext = null;
+            let audioContextReady = false;
+            let dtmfBufferMap = new Map();
+            let ringLoopBuffer = null;
+            let ringLoopSource = null;
+            let preloadStarted = false;
             const ringLoopAudio = new Audio('./assets/phone-call.mp3');
             ringLoopAudio.loop = true;
             ringLoopAudio.preload = 'auto';
+            const dtmfFallbackAudioMap = new Map();
 
-            function playDtmfTone(key) {
-                const source = dtmfSources[key];
+            Object.keys(dtmfSources).forEach(function (key) {
+                const tone = new Audio(dtmfSources[key]);
+                tone.preload = 'auto';
+                dtmfFallbackAudioMap.set(key, tone);
+            });
 
-                if (!source) {
+            function getAudioContext() {
+                if (!audioContext) {
+                    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+
+                    if (!AudioContextCtor) {
+                        return null;
+                    }
+
+                    audioContext = new AudioContextCtor({ latencyHint: 'interactive' });
+                }
+
+                return audioContext;
+            }
+
+            async function ensureAudioContextReady() {
+                const ctx = getAudioContext();
+
+                if (!ctx) {
+                    return null;
+                }
+
+                if (ctx.state !== 'running') {
+                    try {
+                        await ctx.resume();
+                    } catch (error) {
+                        return null;
+                    }
+                }
+
+                audioContextReady = true;
+                return ctx;
+            }
+
+            async function decodeAudioBuffer(src) {
+                const ctx = await ensureAudioContextReady();
+
+                if (!ctx) {
+                    return null;
+                }
+
+                try {
+                    const response = await fetch(src);
+
+                    if (!response.ok) {
+                        return null;
+                    }
+
+                    const arrayBuffer = await response.arrayBuffer();
+                    return await ctx.decodeAudioData(arrayBuffer);
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            async function preloadAudioBuffers() {
+                if (preloadStarted) {
                     return;
                 }
 
-                const tone = new Audio(source);
+                preloadStarted = true;
+
+                const dtmfKeys = Object.keys(dtmfSources);
+
+                await Promise.all(dtmfKeys.map(async function (key) {
+                    const buffer = await decodeAudioBuffer(dtmfSources[key]);
+
+                    if (buffer) {
+                        dtmfBufferMap.set(key, buffer);
+                    }
+                }));
+
+                ringLoopBuffer = await decodeAudioBuffer('./assets/phone-call.mp3');
+            }
+
+            function primeAudio() {
+                ensureAudioContextReady().then(function (ctx) {
+                    if (!ctx) {
+                        return;
+                    }
+
+                    preloadAudioBuffers();
+                });
+            }
+
+            function playDtmfTone(key) {
+                const buffer = dtmfBufferMap.get(key);
+
+                if (audioContextReady && audioContext && buffer) {
+                    const sourceNode = audioContext.createBufferSource();
+                    sourceNode.buffer = buffer;
+                    sourceNode.connect(audioContext.destination);
+                    sourceNode.start(0);
+                    return;
+                }
+
+                const tone = dtmfFallbackAudioMap.get(key);
+
+                if (!tone) {
+                    return;
+                }
+
                 tone.currentTime = 0;
                 tone.play().catch(function () {
                 });
             }
 
             function startCallLoopAudio() {
+                if (audioContextReady && audioContext && ringLoopBuffer) {
+                    stopCallLoopAudio();
+
+                    ringLoopSource = audioContext.createBufferSource();
+                    ringLoopSource.buffer = ringLoopBuffer;
+                    ringLoopSource.loop = true;
+                    ringLoopSource.connect(audioContext.destination);
+                    ringLoopSource.start(0);
+                    return;
+                }
+
                 ringLoopAudio.currentTime = 0;
                 ringLoopAudio.play().catch(function () {
                 });
             }
 
             function stopCallLoopAudio() {
+                if (ringLoopSource) {
+                    try {
+                        ringLoopSource.stop(0);
+                    } catch (error) {
+                    }
+
+                    ringLoopSource.disconnect();
+                    ringLoopSource = null;
+                }
+
                 ringLoopAudio.pause();
                 ringLoopAudio.currentTime = 0;
             }
@@ -393,10 +520,16 @@
             callBtn.addEventListener('click', beginCall);
             endBtn.addEventListener('click', endCall);
 
+            window.addEventListener('click', primeAudio, { once: true });
+            window.addEventListener('touchstart', primeAudio, { once: true });
+
             renderDial();
         })();
 
         (async function () {
+            // Temporary pause: disable auto-transition from phoneApp to chooseApp.
+            return;
+
             const MAGENTA_SCORE_THRESHOLD = 0.12;
             const MIN_RED_BLUE_CHANNEL = 0.2;
             const MATCH_HOLD_MS = 700;

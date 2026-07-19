@@ -1,13 +1,47 @@
 const statusEl = document.querySelector('#status')
 
-const BRIGHTNESS_THRESHOLD = 0.72
+const SHARPNESS_THRESHOLD = 0.09
 const MATCH_HOLD_MS = 1400
 const SAMPLE_INTERVAL_MS = 120
-const BRIGHTNESS_SMOOTH_ALPHA = 0.2
+const SHARPNESS_SMOOTH_ALPHA = 0.2
 const BASE_URL = import.meta?.env?.BASE_URL ?? './public/'
 const REDIRECT_URL = `${BASE_URL}chooseApp.html?v=2`
 
-async function startBrightnessWatcher() {
+function measureSharpness(imageData, width, height) {
+  const luminance = new Float32Array(width * height)
+
+  for (let i = 0, p = 0; i < imageData.length; i += 4, p += 1) {
+    const r = imageData[i]
+    const g = imageData[i + 1]
+    const b = imageData[i + 2]
+    luminance[p] = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+
+  let laplaceSum = 0
+  let sampleCount = 0
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const idx = y * width + x
+      const center = luminance[idx]
+      const top = luminance[idx - width]
+      const bottom = luminance[idx + width]
+      const left = luminance[idx - 1]
+      const right = luminance[idx + 1]
+      const laplace = (4 * center) - top - bottom - left - right
+      laplaceSum += Math.abs(laplace)
+      sampleCount += 1
+    }
+  }
+
+  if (sampleCount === 0) {
+    return 0
+  }
+
+  return laplaceSum / (sampleCount * 255)
+}
+
+async function startBlurWatcher() {
   if (!navigator.mediaDevices?.getUserMedia) {
     statusEl.textContent = 'Camera API is not available on this device.'
     return
@@ -48,10 +82,10 @@ async function startBrightnessWatcher() {
     return
   }
 
-  statusEl.textContent = 'Monitoring brightness for chooseApp...'
+  statusEl.textContent = 'Monitoring blur for chooseApp...'
 
   let matchedSince = null
-  let smoothedBrightness = null
+  let smoothedSharpness = null
 
   const intervalId = window.setInterval(() => {
     if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -64,27 +98,18 @@ async function startBrightnessWatcher() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    let luminanceSum = 0
-
-    for (let i = 0; i < imageData.length; i += 4) {
-      const r = imageData[i]
-      const g = imageData[i + 1]
-      const b = imageData[i + 2]
-      luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b
-    }
-
-    const pixelCount = imageData.length / 4
-    const brightness = luminanceSum / (pixelCount * 255)
-    smoothedBrightness =
-      smoothedBrightness === null
-        ? brightness
-        : smoothedBrightness + BRIGHTNESS_SMOOTH_ALPHA * (brightness - smoothedBrightness)
+    const sharpness = measureSharpness(imageData, canvas.width, canvas.height)
+    smoothedSharpness =
+      smoothedSharpness === null
+        ? sharpness
+        : smoothedSharpness + SHARPNESS_SMOOTH_ALPHA * (sharpness - smoothedSharpness)
 
     console.log(
-      `[brightness] ${brightness.toFixed(3)} (${(brightness * 100).toFixed(1)}%), [smooth] ${smoothedBrightness.toFixed(3)} (${(smoothedBrightness * 100).toFixed(1)}%)`
+      `[sharpness] ${sharpness.toFixed(3)}, [smooth] ${smoothedSharpness.toFixed(3)}, [blur] ${smoothedSharpness <= SHARPNESS_THRESHOLD
+      }`
     )
 
-    const meetsCondition = smoothedBrightness <= BRIGHTNESS_THRESHOLD
+    const meetsCondition = smoothedSharpness <= SHARPNESS_THRESHOLD
 
     if (meetsCondition) {
       matchedSince = matchedSince ?? performance.now()
@@ -103,4 +128,4 @@ async function startBrightnessWatcher() {
   }, SAMPLE_INTERVAL_MS)
 }
 
-startBrightnessWatcher()
+startBlurWatcher()

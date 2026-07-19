@@ -26,27 +26,63 @@
     </style>
 </head>
 
-<body>
-    <div class="flip-vertical">
+<body class="choose-app-body">
+    <div class="flip-vertical choose-app-copy">
         <h1>Insert A UI Sheet</h1>
-        <h1>UIシートを<br><br>差し込んでください</h1>
+        <h1>UIシートを</h1>
+        <h1>差し込んでください</h1>
+        <img class="choose-app-sheet" src="./assets/UIsheet.svg" alt="UI sheet guide" />
     </div>
 
     <script>
         (async function () {
             const MAGENTA_SCORE_THRESHOLD = 0.12;
             const MIN_RED_BLUE_CHANNEL = 0.2;
-            const RETURN_INDEX_BRIGHTNESS_THRESHOLD = 0.6;
+            const RETURN_INDEX_SHARPNESS_THRESHOLD = 0.09;
             const TO_PHONE_HOLD_MS = 700;
-            const TO_INDEX_HOLD_MS = 1400;
+            const TO_INDEX_HOLD_MS = 700;
             const SAMPLE_INTERVAL_MS = 120;
-            const BRIGHTNESS_SMOOTH_ALPHA = 0.2;
+            const SHARPNESS_SMOOTH_ALPHA = 0.2;
             const INDEX_URL_CANDIDATES = [
                 './index.html',
                 '../index.html',
                 '/index.html',
                 '/BushidOS/index.html'
             ];
+
+            function measureSharpness(imageData, width, height) {
+                const luminance = new Float32Array(width * height);
+
+                for (let i = 0, p = 0; i < imageData.length; i += 4, p += 1) {
+                    const r = imageData[i];
+                    const g = imageData[i + 1];
+                    const b = imageData[i + 2];
+                    luminance[p] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                }
+
+                let laplaceSum = 0;
+                let sampleCount = 0;
+
+                for (let y = 1; y < height - 1; y += 1) {
+                    for (let x = 1; x < width - 1; x += 1) {
+                        const idx = y * width + x;
+                        const center = luminance[idx];
+                        const top = luminance[idx - width];
+                        const bottom = luminance[idx + width];
+                        const left = luminance[idx - 1];
+                        const right = luminance[idx + 1];
+                        const laplace = (4 * center) - top - bottom - left - right;
+                        laplaceSum += Math.abs(laplace);
+                        sampleCount += 1;
+                    }
+                }
+
+                if (sampleCount === 0) {
+                    return 0;
+                }
+
+                return laplaceSum / (sampleCount * 255);
+            }
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 return;
@@ -103,7 +139,7 @@
 
             let toPhoneMatchedSince = null;
             let toIndexMatchedSince = null;
-            let smoothedBrightness = null;
+            let smoothedSharpness = null;
 
             const intervalId = window.setInterval(function () {
                 if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -116,7 +152,6 @@
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                let luminanceSum = 0;
                 let redSum = 0;
                 let greenSum = 0;
                 let blueSum = 0;
@@ -125,18 +160,17 @@
                     const r = imageData[i];
                     const g = imageData[i + 1];
                     const b = imageData[i + 2];
-                    luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
                     redSum += r;
                     greenSum += g;
                     blueSum += b;
                 }
 
                 const pixelCount = imageData.length / 4;
-                const brightness = luminanceSum / (pixelCount * 255);
-                smoothedBrightness =
-                    smoothedBrightness === null
-                        ? brightness
-                        : smoothedBrightness + BRIGHTNESS_SMOOTH_ALPHA * (brightness - smoothedBrightness);
+                const sharpness = measureSharpness(imageData, canvas.width, canvas.height);
+                smoothedSharpness =
+                    smoothedSharpness === null
+                        ? sharpness
+                        : smoothedSharpness + SHARPNESS_SMOOTH_ALPHA * (sharpness - smoothedSharpness);
                 const avgRed = redSum / (pixelCount * 255);
                 const avgGreen = greenSum / (pixelCount * 255);
                 const avgBlue = blueSum / (pixelCount * 255);
@@ -145,11 +179,11 @@
                     magentaScore >= MAGENTA_SCORE_THRESHOLD &&
                     avgRed >= MIN_RED_BLUE_CHANNEL &&
                     avgBlue >= MIN_RED_BLUE_CHANNEL;
-                const shouldReturnToIndex = smoothedBrightness > RETURN_INDEX_BRIGHTNESS_THRESHOLD;
+                const shouldReturnToIndex = smoothedSharpness <= RETURN_INDEX_SHARPNESS_THRESHOLD;
 
                 console.log(
-                    '[brightness] ' + brightness.toFixed(3) +
-                    ', [smooth] ' + smoothedBrightness.toFixed(3) +
+                    '[sharpness] ' + sharpness.toFixed(3) +
+                    ', [smooth] ' + smoothedSharpness.toFixed(3) +
                     ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
                     ', [magentaScore] ' + magentaScore.toFixed(3) +
                     ', [magentaEnough] ' + isMagentaEnough +

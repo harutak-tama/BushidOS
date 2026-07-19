@@ -27,10 +27,14 @@ body {
     color: #fff;
     text-align: center;
     padding: clamp(1rem, 3vh, 2rem);
-    font-family: "fot-tsukuaoldmin-pr6n", sans-serif;
+    font-family: "fot-tsukuaoldmin-pr6n", serif;
     font-weight: 300;
     font-style: normal;
     overflow: hidden;
+}
+
+body * {
+    font-family: inherit;
 }
 
 h1 {
@@ -44,6 +48,33 @@ h1 {
     transform-origin: center;
 }
 
+.choose-app-copy {
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
+    margin-top: clamp(12rem, 8vh, 10rem);
+}
+
+.choose-app-body {
+    align-items: start;
+    padding-top: clamp(0.4rem, 2vh, 1.1rem);
+}
+
+.choose-app-copy h1 {
+    line-height: 1.06;
+}
+
+.choose-app-sheet {
+    display: block;
+    width: min(84vw, 34rem);
+    max-width: 100%;
+    aspect-ratio: 477.72 / 284.46;
+    height: auto;
+    margin-top: 8rem;
+    transform: rotate(270deg);
+    transform-origin: center;
+}
+
 .phone-app-body {
     --paper: #101010;
     --paper-shadow: #050505;
@@ -54,7 +85,7 @@ h1 {
     --panel: #181818;
     background: #000;
     color: var(--ink);
-    font-family: "fot-tsukuaoldmin-pr6n", "Avenir Next", "Segoe UI", sans-serif;
+    font-family: "fot-tsukuaoldmin-pr6n", serif;
     text-align: left;
     padding: 0;
     display: block;
@@ -85,8 +116,8 @@ h1 {
 }
 
 .phone-app h1 {
-    margin-top: 0.55rem;
-    margin-bottom: 0.45rem;
+    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
     font-size: clamp(1.9rem, 5vw, 2.8rem);
     letter-spacing: 0.08em;
 }
@@ -120,23 +151,28 @@ h1 {
 
 .phone-device__display-section {
     display: grid;
-    gap: 0.08rem;
-    margin-top: 0;
-    margin-bottom: 0;
+    gap: 0.01rem;
+    width: min(92vw, 31rem);
+    margin: 0 auto;
     background: transparent;
     color: #000;
-    padding: 0.16rem 1.05rem 0.45rem;
+    padding: 0.05rem 1rem 0.14rem;
+    max-height: 18dvh;
+    align-content: start;
 }
 
 .phone-device__display-section p {
     margin: 0;
-    line-height: 1.2;
+    line-height: 1.05;
+    font-size: 0.86rem;
+    text-align: center;
 }
 
 .phone-device__title {
     margin: 0;
+    line-height: 1;
     text-align: center;
-    font-size: clamp(1.6rem, 4.8vw, 2.2rem);
+    font-size: clamp(1rem, 3.8vw, 1.7rem);
 }
 
 .phone-device__keypad-section {
@@ -144,7 +180,7 @@ h1 {
     display: grid;
     gap: 0.8rem;
     padding: 2.6rem 1.3rem 3.8rem;
-    min-height: 58dvh;
+    min-height: 72dvh;
     border-top: none;
     margin-top: 0;
     background: #000;
@@ -169,24 +205,24 @@ h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.8rem;
+    font-size: 0.67rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #000;
-    padding: 0.04rem 1.05rem 0.16rem;
+    padding: 0.01rem 1rem 0.03rem;
 }
 
 .phone-device__display {
-    min-height: 38px;
+    min-height: 22px;
     background: #fff;
     border: 1px solid rgba(0, 0, 0, 0.3);
     border-radius: 14px;
     display: grid;
     place-items: center;
     color: #000;
-    font-size: clamp(1.2rem, 5vw, 1.6rem);
+    font-size: clamp(0.8rem, 2.8vw, 1rem);
     letter-spacing: 0.12em;
-    padding: 0.45rem;
+    padding: 0.14rem 0.2rem;
 }
 
 .phone-device__quick {
