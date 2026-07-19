@@ -531,9 +531,28 @@
             const MAGENTA_SCORE_THRESHOLD = 0.05;
             const SAMPLE_INTERVAL_MS = 120;
             const BRIGHTNESS_SMOOTH_ALPHA = 0.5;
-            const indexUrl = new URL('./index.html', window.location.href).href;
+
+            function getIndexUrl() {
+                const isGitHubPages = window.location.hostname.endsWith('github.io');
+
+                if (isGitHubPages) {
+                    const pathMatch = window.location.pathname.match(/^\/([^/]+)\//);
+
+                    if (pathMatch && pathMatch[1]) {
+                        return '/' + pathMatch[1] + '/index.html';
+                    }
+                }
+
+                return new URL('./index.html', window.location.href).href;
+            }
+
+            const indexUrl = getIndexUrl();
+
+            console.log('[phoneApp] camera watcher starting');
+            console.log('[phoneApp] index redirect target:', indexUrl);
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('[phoneApp] getUserMedia is not available');
                 return;
             }
 
@@ -546,6 +565,7 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             if (!ctx) {
+                console.warn('[phoneApp] 2d canvas context is not available');
                 return;
             }
 
@@ -557,6 +577,7 @@
                     audio: false,
                 });
             } catch (error) {
+                console.warn('[phoneApp] getUserMedia failed', error);
                 return;
             }
 
@@ -565,9 +586,12 @@
             try {
                 await video.play();
             } catch (error) {
+                console.warn('[phoneApp] video.play() failed', error);
                 stream.getTracks().forEach(function (track) { track.stop(); });
                 return;
             }
+
+            console.log('[phoneApp] camera watcher active');
 
             let smoothedBrightness = null;
             let previousBrightness = null;
@@ -618,7 +642,7 @@
                     ', [smooth] ' + smoothedBrightness.toFixed(3) +
                     ', [delta] ' + brightnessDelta.toFixed(3) +
                     ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
-                    '[magentaScore] ' + magentaScore.toFixed(3) +
+                    ', [magentaScore] ' + magentaScore.toFixed(3) +
                     ', [threshold] ' + MAGENTA_SCORE_THRESHOLD.toFixed(3)
                 );
 
