@@ -1,6 +1,6 @@
 const statusEl = document.querySelector('#status')
 
-const SHARPNESS_THRESHOLD = 0.09
+const SHARPNESS_THRESHOLD = 0.06
 const MATCH_HOLD_MS = 1400
 const SAMPLE_INTERVAL_MS = 120
 const SHARPNESS_SMOOTH_ALPHA = 0.2
