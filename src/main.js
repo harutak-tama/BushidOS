@@ -1,8 +1,8 @@
 const statusEl = document.querySelector('#status')
 
-const BRIGHTNESS_DELTA_THRESHOLD = 0.005
+const BRIGHTNESS_DELTA_THRESHOLD = 0.007
 const SAMPLE_INTERVAL_MS = 120
-const BRIGHTNESS_SMOOTH_ALPHA = 0.4
+const BRIGHTNESS_SMOOTH_ALPHA = 0.6
 const BASE_URL = import.meta?.env?.BASE_URL ?? './public/'
 const REDIRECT_URL = `${BASE_URL}chooseApp.html?v=2`
 
