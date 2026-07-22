@@ -36,10 +36,10 @@
 
     <script>
         (async function () {
-            const SHARPNESS_DELTA_THRESHOLD = 0.02;
+            const BRIGHTNESS_DELTA_THRESHOLD = 0.03;
             const MAGENTA_SCORE_THRESHOLD = 0.04;
             const SAMPLE_INTERVAL_MS = 120;
-            const SHARPNESS_SMOOTH_ALPHA = 0.4;
+            const BRIGHTNESS_SMOOTH_ALPHA = 0.4;
             const MAGENTA_SMOOTH_ALPHA = 0.4;
             const INDEX_URL_CANDIDATES = [
                 './index.html',
@@ -101,8 +101,8 @@
                 return;
             }
 
-            let smoothedSharpness = null;
-            let previousSharpness = null;
+            let smoothedBrightness = null;
+            let previousBrightness = null;
             let smoothedMagentaScore = null;
 
             const intervalId = window.setInterval(function () {
@@ -117,7 +117,6 @@
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
                 let luminanceSum = 0;
-                let luminanceSquaredSum = 0;
                 let redSum = 0;
                 let greenSum = 0;
                 let blueSum = 0;
@@ -126,26 +125,22 @@
                     const r = imageData[i];
                     const g = imageData[i + 1];
                     const b = imageData[i + 2];
-                    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                    luminanceSum += luminance;
-                    luminanceSquaredSum += luminance * luminance;
+                    luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
                     redSum += r;
                     greenSum += g;
                     blueSum += b;
                 }
 
                 const pixelCount = imageData.length / 4;
-                const meanLuminance = luminanceSum / pixelCount;
-                const variance = luminanceSquaredSum / pixelCount - meanLuminance * meanLuminance;
-                const sharpness = Math.min(1, variance / (255 * 255));
-                smoothedSharpness =
-                    smoothedSharpness === null
-                        ? sharpness
-                        : smoothedSharpness + SHARPNESS_SMOOTH_ALPHA * (sharpness - smoothedSharpness);
-                const sharpnessDelta = previousSharpness === null
+                const brightness = luminanceSum / (pixelCount * 255);
+                smoothedBrightness =
+                    smoothedBrightness === null
+                        ? brightness
+                        : smoothedBrightness + BRIGHTNESS_SMOOTH_ALPHA * (brightness - smoothedBrightness);
+                const brightnessDelta = previousBrightness === null
                     ? 0
-                    : smoothedSharpness - previousSharpness;
-                previousSharpness = smoothedSharpness;
+                    : smoothedBrightness - previousBrightness;
+                previousBrightness = smoothedBrightness;
                 const avgRed = redSum / (pixelCount * 255);
                 const avgGreen = greenSum / (pixelCount * 255);
                 const avgBlue = blueSum / (pixelCount * 255);
@@ -155,12 +150,12 @@
                         ? magentaScore
                         : smoothedMagentaScore + MAGENTA_SMOOTH_ALPHA * (magentaScore - smoothedMagentaScore);
                 const shouldGoPhone = smoothedMagentaScore >= MAGENTA_SCORE_THRESHOLD;
-                const shouldReturnToIndex = sharpnessDelta >= SHARPNESS_DELTA_THRESHOLD;
+                const shouldReturnToIndex = brightnessDelta >= BRIGHTNESS_DELTA_THRESHOLD;
 
                 console.log(
-                    '[sharpness] ' + sharpness.toFixed(3) +
-                    ', [smooth] ' + smoothedSharpness.toFixed(3) +
-                    ', [delta] ' + sharpnessDelta.toFixed(3) +
+                    '[brightness] ' + brightness.toFixed(3) +
+                    ', [smooth] ' + smoothedBrightness.toFixed(3) +
+                    ', [delta] ' + brightnessDelta.toFixed(3) +
                     ', [rgb] ' + avgRed.toFixed(3) + ', ' + avgGreen.toFixed(3) + ', ' + avgBlue.toFixed(3) +
                     ', [magentaScoreRaw] ' + magentaScore.toFixed(3) +
                     ', [magentaScoreSmooth] ' + smoothedMagentaScore.toFixed(3) +
