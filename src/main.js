@@ -1,6 +1,6 @@
 const statusEl = document.querySelector('#status')
 
-const BRIGHTNESS_DELTA_THRESHOLD = 0.03
+const BRIGHTNESS_DELTA_THRESHOLD = 0.005
 const SAMPLE_INTERVAL_MS = 120
 const BRIGHTNESS_SMOOTH_ALPHA = 0.4
 const BASE_URL = import.meta?.env?.BASE_URL ?? './public/'
