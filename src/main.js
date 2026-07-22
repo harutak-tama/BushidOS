@@ -1,8 +1,8 @@
 const statusEl = document.querySelector('#status')
 
-const BRIGHTNESS_DELTA_THRESHOLD = 0.03
+const SHARPNESS_DELTA_THRESHOLD = 0.02
 const SAMPLE_INTERVAL_MS = 120
-const BRIGHTNESS_SMOOTH_ALPHA = 0.4
+const SHARPNESS_SMOOTH_ALPHA = 0.4
 const BASE_URL = import.meta?.env?.BASE_URL ?? './public/'
 const REDIRECT_URL = `${BASE_URL}chooseApp.html?v=2`
 
@@ -47,10 +47,10 @@ async function startBrightnessWatcher() {
     return
   }
 
-  statusEl.textContent = 'Monitoring brightness for chooseApp...'
+  statusEl.textContent = 'Monitoring sharpness for chooseApp...'
 
-  let smoothedBrightness = null
-  let previousBrightness = null
+  let smoothedSharpness = null
+  let previousSharpness = null
 
   const intervalId = window.setInterval(() => {
     if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -64,30 +64,35 @@ async function startBrightnessWatcher() {
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
     let luminanceSum = 0
+    let luminanceSquaredSum = 0
 
     for (let i = 0; i < imageData.length; i += 4) {
       const r = imageData[i]
       const g = imageData[i + 1]
       const b = imageData[i + 2]
-      luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+      const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+      luminanceSum += luminance
+      luminanceSquaredSum += luminance * luminance
     }
 
     const pixelCount = imageData.length / 4
-    const brightness = luminanceSum / (pixelCount * 255)
-    smoothedBrightness =
-      smoothedBrightness === null
-        ? brightness
-        : smoothedBrightness + BRIGHTNESS_SMOOTH_ALPHA * (brightness - smoothedBrightness)
-    const brightnessDelta = previousBrightness === null
+    const meanLuminance = luminanceSum / pixelCount
+    const variance = luminanceSquaredSum / pixelCount - meanLuminance * meanLuminance
+    const sharpness = Math.min(1, variance / (255 * 255))
+    smoothedSharpness =
+      smoothedSharpness === null
+        ? sharpness
+        : smoothedSharpness + SHARPNESS_SMOOTH_ALPHA * (sharpness - smoothedSharpness)
+    const sharpnessDelta = previousSharpness === null
       ? 0
-      : smoothedBrightness - previousBrightness
-    previousBrightness = smoothedBrightness
+      : smoothedSharpness - previousSharpness
+    previousSharpness = smoothedSharpness
 
     console.log(
-      `[brightness] ${brightness.toFixed(3)} (${(brightness * 100).toFixed(1)}%), [smooth] ${smoothedBrightness.toFixed(3)} (${(smoothedBrightness * 100).toFixed(1)}%), [delta] ${brightnessDelta.toFixed(3)}`
+      `[sharpness] ${sharpness.toFixed(3)} (${(sharpness * 100).toFixed(1)}%), [smooth] ${smoothedSharpness.toFixed(3)} (${(smoothedSharpness * 100).toFixed(1)}%), [delta] ${sharpnessDelta.toFixed(3)}`
     )
 
-    const meetsCondition = brightnessDelta <= -BRIGHTNESS_DELTA_THRESHOLD
+    const meetsCondition = sharpnessDelta >= SHARPNESS_DELTA_THRESHOLD
 
     if (meetsCondition) {
       window.clearInterval(intervalId)
