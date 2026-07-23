@@ -250,8 +250,8 @@
             let dtmfBufferMap = new Map();
             let ringLoopBuffer = null;
             let ringLoopSource = null;
-            let preloadStarted = false;
-            const ringLoopAudio = new Audio('./assets/phone-call.mp3');
+            let preloadStarted = false; let userInteractionReady = false;
+            let pendingPlayback = null; const ringLoopAudio = new Audio('./assets/phone-call.mp3');
             ringLoopAudio.loop = true;
             ringLoopAudio.preload = 'auto';
             const dtmfFallbackAudioMap = new Map();
@@ -293,6 +293,21 @@
 
                 audioContextReady = true;
                 return ctx;
+            }
+
+            async function prepareAudioPlayback() {
+                if (userInteractionReady) {
+                    return true;
+                }
+
+                const ctx = await ensureAudioContextReady();
+
+                if (!ctx) {
+                    return false;
+                }
+
+                userInteractionReady = true;
+                return true;
             }
 
             async function decodeAudioBuffer(src) {
@@ -337,8 +352,8 @@
             }
 
             function primeAudio() {
-                ensureAudioContextReady().then(function (ctx) {
-                    if (!ctx) {
+                prepareAudioPlayback().then(function (ready) {
+                    if (!ready) {
                         return;
                     }
 
@@ -346,7 +361,11 @@
                 });
             }
 
-            function playDtmfTone(key) {
+            async function playDtmfTone(key) {
+                if (!userInteractionReady) {
+                    await prepareAudioPlayback();
+                }
+
                 const buffer = dtmfBufferMap.get(key);
 
                 if (audioContextReady && audioContext && buffer) {
@@ -363,12 +382,17 @@
                     return;
                 }
 
+                tone.pause();
                 tone.currentTime = 0;
                 tone.play().catch(function () {
                 });
             }
 
-            function startCallLoopAudio() {
+            async function startCallLoopAudio() {
+                if (!userInteractionReady) {
+                    await prepareAudioPlayback();
+                }
+
                 if (audioContextReady && audioContext && ringLoopBuffer) {
                     stopCallLoopAudio();
 
@@ -380,6 +404,7 @@
                     return;
                 }
 
+                ringLoopAudio.pause();
                 ringLoopAudio.currentTime = 0;
                 ringLoopAudio.play().catch(function () {
                 });
@@ -396,8 +421,10 @@
                     ringLoopSource = null;
                 }
 
-                ringLoopAudio.pause();
-                ringLoopAudio.currentTime = 0;
+                if (ringLoopAudio) {
+                    ringLoopAudio.pause();
+                    ringLoopAudio.currentTime = 0;
+                }
             }
 
             function setStatus(text) {
@@ -449,7 +476,8 @@
                     callState = 'in-call';
                     callStartedAt = Date.now();
                     setStatus('In call 00:00');
-                    startCallLoopAudio();
+                    startCallLoopAudio().catch(function () {
+                    });
 
                     callTimer = window.setInterval(function () {
                         const elapsedSeconds = Math.floor((Date.now() - callStartedAt) / 1000);
@@ -467,7 +495,8 @@
                     return;
                 }
 
-                playDtmfTone(key);
+                playDtmfTone(key).catch(function () {
+                });
                 dialedNumber += key;
                 setStatus('Number ready');
                 renderDial();
