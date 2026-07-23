@@ -154,12 +154,12 @@ h1 {
     display: grid;
     gap: 0.01rem;
     width: min(92vw, 31rem);
-    height: 26vh;
+    /* min-height: 26vh; */
     margin: 0 auto;
     background: transparent;
     color: #000;
     padding: 0.05rem 1rem 0.14rem;
-    max-height: 18dvh;
+    height: 20vh;
     align-content: start;
 }
 
@@ -182,7 +182,7 @@ h1 {
     display: grid;
     gap: 0.8rem;
     padding: 2.6rem 1.3rem 3.8rem;
-    min-height: 80vh;
+    height: 80vh;
     border-top: none;
     margin-top: 0;
     background: #000;
