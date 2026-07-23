@@ -154,7 +154,7 @@ h1 {
     display: grid;
     gap: 0.01rem;
     width: min(92vw, 31rem);
-    height: 28vh;
+    height: 26vh;
     margin: 0 auto;
     background: transparent;
     color: #000;
