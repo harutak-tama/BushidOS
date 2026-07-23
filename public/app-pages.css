@@ -182,7 +182,7 @@ h1 {
     display: grid;
     gap: 0.8rem;
     padding: 2.6rem 1.3rem 3.8rem;
-    height: 80vh;
+    min-height: 80vh;
     border-top: none;
     margin-top: 0;
     background: #000;
