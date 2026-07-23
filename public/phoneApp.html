@@ -250,15 +250,22 @@
             let dtmfBufferMap = new Map();
             let ringLoopBuffer = null;
             let ringLoopSource = null;
-            let preloadStarted = false; let userInteractionReady = false;
-            let pendingPlayback = null; const ringLoopAudio = new Audio('./assets/phone-call.mp3');
+            let preloadStarted = false;
+            let userInteractionReady = false;
+            let katanaSoundStarted = false;
+            const ringLoopAudio = new Audio('./assets/phone-call.mp3');
             ringLoopAudio.loop = true;
             ringLoopAudio.preload = 'auto';
+            ringLoopAudio.playsInline = true;
+            const katanaAudio = new Audio('./assets/katana.mp3');
+            katanaAudio.preload = 'auto';
+            katanaAudio.playsInline = true;
             const dtmfFallbackAudioMap = new Map();
 
             Object.keys(dtmfSources).forEach(function (key) {
                 const tone = new Audio(dtmfSources[key]);
                 tone.preload = 'auto';
+                tone.playsInline = true;
                 dtmfFallbackAudioMap.set(key, tone);
             });
 
@@ -307,6 +314,13 @@
                 }
 
                 userInteractionReady = true;
+
+                try {
+                    ringLoopAudio.load();
+                    katanaAudio.load();
+                } catch (error) {
+                }
+
                 return true;
             }
 
@@ -358,6 +372,14 @@
                     }
 
                     preloadAudioBuffers();
+
+                    if (!katanaSoundStarted) {
+                        katanaSoundStarted = true;
+                        katanaAudio.pause();
+                        katanaAudio.currentTime = 0;
+                        katanaAudio.play().catch(function () {
+                        });
+                    }
                 });
             }
 
